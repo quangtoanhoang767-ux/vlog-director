@@ -60,7 +60,7 @@ else:
     line(free > need, f"工作目录剩余 {free / 1e9:.0f} GB（估计需要 {need / 1e9:.0f} GB）")
 
 print("== 字体")
-for role in ("cn", "cn_bold", "latin_black", "serif_italic", "hand", "symbol"):
+for role in ("cn", "cn_bold", "cn_serif", "latin_black", "serif_italic", "hand", "symbol"):
     try: line(True, f"{role}: {C.font_path(cfg, role)}")
     except SystemExit as e: line(False, str(e))
 print("\n全部就绪" if ok else "\n有 [!!] 的项需要先处理")

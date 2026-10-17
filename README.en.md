@@ -33,7 +33,7 @@ All from the same montage. Each frame is one shot the skill laid out on its own:
 | ![CLEAR WATER](assets/card_clearwater.jpg) | ![RAINBOW TOWER](assets/card_rainbow.jpg) |
 | On the music drop: white flash + a 2-bar hero shot | Cards alternate left and right to keep the rhythm |
 | ![ICED COFFEE](assets/card_coffee.jpg) | ![FINALLY](assets/card_finally.jpg) |
-| Italic serif kicker, heavy sans title | Closing shot, followed by a handwritten end card |
+| Italic serif kicker, heavy sans title | Closing shot, then the frame fades to paper white with a serif end card |
 
 Before cutting anything, it turns all the footage into a table. Left: the frame. Right: its row in the table.
 
@@ -46,7 +46,7 @@ All 390 segments of the trip laid out by time; brighter means more worth using. 
 ## What it makes
 
 - **Long-form vlog**: a few minutes to 15+, with a story and subtitled dialogue. Music has exactly two fixed levels: low under speech, up when nobody talks. No pumping volume.
-- **Montage**: a 1 to 2 minute magazine-card edit. Every cut lands on a bar line. Optional route intro where place names pop in on the beat, and a handwritten end card.
+- **Montage**: a 1 to 2 minute magazine-card edit. Every cut lands on a bar line. The intro develops out of a white page with a serif title and an optional flight route that lights up one stop every two beats; the outro fades the last shot to white.
 - **Footage table**: one row per clip with time, place, people, quotes, how funny, whether it works as an opener, graded S/A/B/C, exported to a spreadsheet. Looking for "that shot" later is just a lookup.
 - **Extras**: stills for social posts and covers, a short personal film for each person.
 
@@ -133,7 +133,7 @@ The who's-who list and people's names stay in your local working directory and a
 
 ## Fonts
 
-System fonts first; anything missing is downloaded from Google Fonts (Noto Sans SC, Archivo Black, Libre Baskerville, Long Cang, Noto Symbols 2), all under the SIL Open Font License and free for commercial use. To use your own fonts, set paths under `fonts` in `project.json`.
+System fonts first; anything missing is downloaded from Google Fonts (Noto Sans SC, Noto Serif SC, Archivo Black, Libre Baskerville, Long Cang, Noto Symbols 2), all under the SIL Open Font License and free for commercial use. To use your own fonts, set paths under `fonts` in `project.json`.
 
 ## Contributing
 

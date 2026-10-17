@@ -1,9 +1,10 @@
 """混剪模式：杂志卡片风快剪，切点全部卡在音乐小节上。逐帧合成，原片只读。
 效果：画面做成圆角卡片从侧边弹入（带回弹）+ 背景放大并铺白雾 + 小字/大标题/中文副标题逐个浮现；
       不足 1 小节的镜头全屏快切，带 RGB 分离；可选白闪；指定镜头混入原声（音乐自动压低）。
+      片头片尾和卡片同一套杂志风：白纸上显影出画面（片头用第一个镜头，片尾接着最后一个镜头往下放），宋体大字。
 用法: python render_montage.py --project <工作目录> [镜头表.csv] [--out 名字.mp4]
         [--bpm 140] [--key 0] [--music 歌.mp3 --music-offset 秒] [--intro 2] [--end 3] [--preview 镜头序号]
-镜头表格式见 references/montage_format.md。--preview 只渲染某个镜头存成 jpg，用来快速看效果。"""
+镜头表格式见 references/montage_format.md。--preview 只渲染某个镜头存成 jpg，用来快速看效果（0 看片头，-1 看片尾）。"""
 import csv, re, subprocess, sys, time
 from pathlib import Path
 import numpy as np
@@ -32,12 +33,15 @@ EV.append(("end", round(bar * BAR * FPS), round((bar + END) * BAR * FPS), None))
 TOTAL_BARS = bar + END; TOTAL = EV[-1][2]
 print(f"{len(SHOTS)} 个镜头，{TOTAL_BARS:g} 小节 ≈ {TOTAL / FPS:.1f} 秒（{BPM:g} BPM）")
 
-F = {k: C.font_path(cfg, k) for k in ("cn", "cn_bold", "latin_black", "serif_italic", "hand", "symbol")}
+F = {k: C.font_path(cfg, k) for k in ("cn", "cn_bold", "cn_serif", "latin_black", "serif_italic", "symbol")}
 from PIL import ImageFont
-def font(role, size):
+def font(role, size, weight=None):
     f = ImageFont.truetype(F[role], size)
     if role == "cn_bold" and "wght" in Path(F[role]).name:
         try: f.set_variation_by_name("Bold")
+        except Exception: pass
+    if weight:                                                    # 可变字重的字体（思源宋体等）才有效，别的字体忽略
+        try: f.set_variation_by_axes([weight])
         except Exception: pass
     return f
 def ease_back(x, k=1.35): x = min(max(x, 0), 1) - 1; return 1 + (k + 1) * x ** 3 + k * x ** 2
@@ -171,28 +175,97 @@ def render_shot(s, n, out):
         out.write(np.clip(o, 0, 255).astype(np.uint8).tobytes())
 
 
-def render_title(n, out, lines):
-    base = Image.new("RGB", (W, H), "black"); d = ImageDraw.Draw(base)
-    for txt, role, size, y, col in lines:
-        if not txt: continue
-        f = font(role, size); w = d.textlength(txt, font=f); d.text(((W - w) / 2, y), txt, font=f, fill=col)
-    arr = np.asarray(base, np.float32)
-    for i in range(n):
-        t = i / FPS; a = ease_out((t - 0.2) / 0.7) * (1 - ease_out((t - (n / FPS - 0.5)) / 0.5))
-        out.write((arr * a).astype(np.uint8).tobytes())
+INK = (22, 22, 22)
 
 
-def render_route(n, out, words, date):
-    """路线片头：每 2 拍蹦出一个地名（硬切，卡在鼓点上），第 4 拍淡入日期"""
-    beat = BAR / 4; fb = font("cn_bold", 84); fs = font("serif_italic", 36)
-    for i in range(n):
-        t = i / FPS; img = Image.new("RGB", (W, H), "black"); d = ImageDraw.Draw(img)
-        txt = "  →  ".join(words[:min(len(words), int(t / (beat * 2)) + 1)]); w = d.textlength(txt, font=fb)
-        d.text(((W - w) / 2, H / 2 - 80), txt, font=fb, fill="white")
+def tracked(d, text, f, cx, y, track, fill):
+    """字间距加宽、居中画一行字（宋体大标题拉开字距才有杂志感）"""
+    ws = [d.textlength(c, font=f) for c in text]; total = sum(ws) + track * (len(text) - 1)
+    x = cx - total / 2
+    for c, w in zip(text, ws):
+        d.text((x, y), c, font=f, fill=fill); x += w + track
+
+
+def fog(yc, sig, lo, hi):
+    """竖直方向的白雾：yc 处最浓（hi），往上下按高斯慢慢变淡到 lo，看不出边界"""
+    y = np.arange(H, dtype=np.float32)
+    return (lo + (hi - lo) * np.exp(-((y - yc) / sig) ** 2))[:, None, None]
+
+
+def backdrop(fr, u, z0, z1):
+    """背景画面：慢推近、降一点饱和度，和卡片背后的画面同一种处理"""
+    img = Image.fromarray(fr); sh_, sw_ = fr.shape[:2]
+    cy = sh_ * (cfg["crop_y"] + 0.03 if sh_ > sw_ * 0.7 else 0.5); z = z0 + (z1 - z0) * u
+    o = crop_resize(img, sw_ / 2, cy, W / z, H / z, W, H)
+    return o * 0.8 + o.mean(2, keepdims=True) * 0.2
+
+
+def ink(o, layer, a, dy=0):
+    """把一层字（RGBA）按透明度 a 盖到画面上，dy>0 时从下方浮上来"""
+    if a <= 0: return o
+    arr = np.asarray(layer, np.float32); rgb, al = arr[..., :3], arr[..., 3:] / 255 * min(a, 1)
+    if dy: rgb = np.roll(rgb, dy, 0); al = np.roll(al, dy, 0)
+    return o * (1 - al) + rgb * al
+
+
+def blank(): return Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+
+def render_intro(n, out, s0, title, route, date, subtitle):
+    """片头：白纸上显影出第一个镜头的画面，宋体片名收紧字距落定；
+    有 route 就画一条航线，每 2 拍点亮一站（卡在鼓点上），第 4 拍淡入日期"""
+    beat = BAR / 4; fT = font("cn_serif", 176, 800); fN = font("cn", 34); fD = font("serif_italic", 32)
+    cx = W // 2; ly = 668                                            # 航线所在高度
+    k = len(route); L = min(1080, 300 * max(k - 1, 1)); px = [cx - L / 2 + L * i / max(k - 1, 1) for i in range(k)]
+    veil = fog(560, 330, 0.42, 0.93)
+    for i, fr in enumerate(frames(s0[0], s0[1], n)):
+        t = i / FPS; u = i / max(1, n - 1)
+        o = backdrop(fr, u, 1.22, 1.12)
+        dev = ease_out(t / (beat * 3))                               # 前 3 拍从白纸里慢慢显影
+        o = o + (255 - o) * (1 - (1 - veil) * dev)
+        a = ease_out(t / 0.9)                                        # 片名：淡入的同时字距从宽收紧
+        lay = blank(); tracked(ImageDraw.Draw(lay), title, fT, cx, 372, 150 - 70 * a, INK + (255,))
+        o = ink(o, lay, a, int(18 * (1 - a)))
+        lay = blank(); d = ImageDraw.Draw(lay)
+        if k:
+            for j in range(k):
+                tj = beat * 2 * j                                    # 第 j 站在第 2j 拍点亮
+                if j and t > tj - beat:                              # 前一拍开始画线，正好在鼓点上到站
+                    e = ease_out((t - (tj - beat)) / beat); d.line([(px[j - 1], ly), (px[j - 1] + (px[j] - px[j - 1]) * e, ly)], fill=INK + (200,), width=2)
+                if t >= tj:
+                    r = 9 * ease_back((t - tj) / 0.25); d.ellipse([px[j] - r, ly - r, px[j] + r, ly + r], fill=INK + (255,))
+                    na = int(255 * ease_out((t - tj) / 0.3)); w = d.textlength(route[j], font=fN)
+                    d.text((px[j] - w / 2, ly + 30 + 12 * (1 - na / 255)), route[j], font=fN, fill=(50, 50, 50, na))
+        elif subtitle and t > beat * 2:
+            tracked(d, subtitle, fN, cx, ly - 18, 10, (50, 50, 50, int(255 * ease_out((t - beat * 2) / 0.5))))
         if date and t > beat * 4:
-            al = int(255 * ease_out((t - beat * 4) / 0.5)); w2 = d.textlength(date, font=fs)
-            d.text(((W - w2) / 2, H / 2 + 40), date, font=fs, fill=(al, al, al))
-        out.write(np.asarray(img).tobytes())
+            w = d.textlength(date, font=fD); d.text((cx - w / 2, ly + 104), date, font=fD, fill=(70, 70, 70, int(255 * ease_out((t - beat * 4) / 0.5))))
+        o = ink(o, lay, 1)
+        out.write(np.clip(o, 0, 255).astype(np.uint8).tobytes())
+
+
+def render_outro(n, out, s_last, a0, lines):
+    """片尾：最后一个镜头接着往下放，白雾慢慢铺满，宋体片名 + 细线 + 一句 end_text；最后整屏淡成白纸"""
+    fT = font("cn_serif", 150, 800); fE = font("cn_serif", 46, 500); cx = W // 2; T = n / FPS
+    veil = fog(540, 300, 0.38, 0.92)
+    two = len(lines) == 2; yT = 370 if two else 430
+    for i, fr in enumerate(frames(s_last[0], a0, n)):
+        t = i / FPS; u = i / max(1, n - 1)
+        o = backdrop(fr, u, 1.20, 1.28)
+        v = ease_out(t / 1.4); out_ = ease_out((t - (T - 3.0)) / 1.5)   # 先铺白雾，收尾前 3 秒画面淡出成白纸
+        o = o + (255 - o) * np.clip(veil * v + out_, 0, 1)
+        fade = 1 - ease_out((t - (T - 1.3)) / 1.0)                   # 字最后 1.3 秒淡出
+        a = ease_out((t - 0.5) / 1.0)
+        lay = blank(); tracked(ImageDraw.Draw(lay), lines[0], fT, cx, yT, 120 - 50 * a, INK + (255,))
+        o = ink(o, lay, a * fade, int(16 * (1 - a)))
+        if two:
+            e = ease_out((t - 1.2) / 0.8)                            # 细线从中间向两边展开
+            lay = blank(); ImageDraw.Draw(lay).line([(cx - 90 * e, 590), (cx + 90 * e, 590)], fill=INK + (190,), width=2)
+            o = ink(o, lay, fade)
+            b = ease_out((t - 1.6) / 0.9)                            # end_text 比细线晚一点浮上来
+            lay = blank(); tracked(ImageDraw.Draw(lay), lines[1], fE, cx, 628, 14, (40, 40, 40, 255))
+            o = ink(o, lay, b * fade, int(14 * (1 - b)))
+        out.write(np.clip(o, 0, 255).astype(np.uint8).tobytes())
 
 
 class Pipe:
@@ -201,11 +274,21 @@ class Pipe:
     def write(self, b): self.buf.append(b)
 
 
-if "--preview" in sys.argv:
-    k = int(arg("--preview", 1)); typ, f0, f1, s = EV[k]; p = Pipe(); render_shot(s, f1 - f0, p)
-    pick = [p.buf[min(len(p.buf) - 1, j)] for j in (3, 12, len(p.buf) // 2)]
-    im = Image.new("RGB", (W * 3 // 2, H // 2))
-    for j, b in enumerate(pick): im.paste(Image.frombuffer("RGB", (W, H), b).resize((W // 2, H // 2)), (j * W // 2, 0))
+def render_ev(k, out):
+    typ, f0, f1, s = EV[k]
+    if typ == "intro":
+        render_intro(f1 - f0, out, SHOTS[0], cfg["title"], cfg.get("route") or [], cfg.get("date", ""), cfg["subtitle"])
+    elif typ == "end":
+        last = SHOTS[-1]; lines = [x for x in (cfg["title"], cfg["end_text"]) if x] or ["END"]
+        render_outro(f1 - f0, out, last, last[1] + (EV[k - 1][2] - EV[k - 1][1]) / FPS, lines)
+    else: render_shot(s, f1 - f0, out)
+
+
+if "--preview" in sys.argv:                                       # 0 = 片头，-1 = 片尾
+    k = int(arg("--preview", 1)) % len(EV); p = Pipe(); render_ev(k, p); m = len(p.buf)
+    pick = [p.buf[min(m - 1, j)] for j in ((3, 12, m // 2) if EV[k][0] == "shot" else [int(m * x) for x in (0.04, 0.2, 0.4, 0.6, 0.8, 0.97)])]
+    cols = 3; im = Image.new("RGB", (W * cols // 2, H // 2 * ((len(pick) + cols - 1) // cols)))
+    for j, b in enumerate(pick): im.paste(Image.frombuffer("RGB", (W, H), b).resize((W // 2, H // 2)), ((j % cols) * W // 2, (j // cols) * H // 2))
     out = D["edit"] / f"_preview_{k}.jpg"; im.save(out, quality=85); print(out); sys.exit()
 
 # ---------- 音频：配乐 + 指定镜头的原声 ----------
@@ -242,14 +325,7 @@ enc = subprocess.Popen([FF, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "
                         "-f", "f32le", "-ar", str(SR), "-ac", "2", "-i", str(af), *C.video_encoder(), "-pix_fmt", "yuv420p",
                         "-c:a", "aac", "-b:a", "256k", "-shortest", "-movflags", "+faststart", str(out)], stdin=subprocess.PIPE)
 for k, (typ, f0, f1, s) in enumerate(EV):
-    if typ == "intro":
-        if cfg.get("route"): render_route(f1 - f0, enc.stdin, cfg["route"], cfg.get("date", ""))
-        else: render_title(f1 - f0, enc.stdin, [(cfg["title"], "hand", 170, 330, "white"), (cfg["subtitle"], "cn", 44, 590, (200, 200, 200))])
-    elif typ == "end":
-        if cfg["end_text"] and cfg["title"]:
-            render_title(f1 - f0, enc.stdin, [(cfg["title"], "hand", 150, 330, "white"), (cfg["end_text"], "hand", 104, 560, "white")])
-        else: render_title(f1 - f0, enc.stdin, [(cfg["end_text"] or cfg["title"], "hand", 140, 360, "white")])
-    else: render_shot(s, f1 - f0, enc.stdin)
+    render_ev(k, enc.stdin)
     print(f"\r{k + 1}/{len(EV)}  {time.time() - t0:.0f}s", end="", flush=True)
 enc.stdin.close(); enc.wait(); af.unlink()
 print(f"\n完成 {out}  {TOTAL / FPS:.1f}s")

@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "date": "",                            # 配合 route，第 4 拍淡入的一行小字，如 "2026.9.26 — 10.3"
     "output": {"width": 1920, "height": 1080, "fps": 30},
     "crop_y": 0.42,                        # 方形/竖屏素材裁 16:9 时取景偏上的比例（人脸多在中上部）
-    "fonts": {},                           # 可覆盖：cn / cn_bold / latin_black / serif_italic / hand / symbol
+    "fonts": {},                           # 可覆盖：cn / cn_bold / cn_serif / latin_black / serif_italic / hand / symbol
 }
 
 
@@ -135,6 +135,7 @@ def rotation_args(src, proxy=None):
 # ---------- 字体 ----------
 FONT_URLS = {   # 全部是 SIL Open Font License，可免费商用、可再分发
     "cn":           "https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+    "cn_serif":     "https://github.com/google/fonts/raw/main/ofl/notoserifsc/NotoSerifSC%5Bwght%5D.ttf",
     "latin_black":  "https://github.com/google/fonts/raw/main/ofl/archivoblack/ArchivoBlack-Regular.ttf",
     "serif_italic": "https://github.com/google/fonts/raw/main/ofl/librebaskerville/LibreBaskerville-Italic.ttf",
     "hand":         "https://github.com/google/fonts/raw/main/ofl/longcang/LongCang-Regular.ttf",
@@ -143,6 +144,7 @@ FONT_URLS = {   # 全部是 SIL Open Font License，可免费商用、可再分�
 SYSTEM_FONTS = {   # 有系统字体就先用系统的，省得下载
     "cn": ["C:/Windows/Fonts/msyh.ttc", "/System/Library/Fonts/PingFang.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"],
     "cn_bold": ["C:/Windows/Fonts/msyhbd.ttc", "/System/Library/Fonts/PingFang.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"],
+    "cn_serif": ["C:/Windows/Fonts/NotoSerifSC-VF.ttf", "/System/Library/Fonts/Supplemental/Songti.ttc", "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"],
     "latin_black": ["C:/Windows/Fonts/ariblk.ttf", "/System/Library/Fonts/Supplemental/Arial Black.ttf"],
     "serif_italic": ["C:/Windows/Fonts/georgiai.ttf", "/System/Library/Fonts/Supplemental/Georgia Italic.ttf"],
     "symbol": ["C:/Windows/Fonts/seguisym.ttf", "/System/Library/Fonts/Apple Symbols.ttf"],

@@ -33,7 +33,7 @@ git clone https://github.com/quangtoanhoang767-ux/vlog-director ~/.claude/skills
 | ![CLEAR WATER](assets/card_clearwater.jpg) | ![RAINBOW TOWER](assets/card_rainbow.jpg) |
 | 音乐 drop 那一下：白闪 + 2 小节重点镜头 | 卡片左右交替，节奏更跳 |
 | ![ICED COFFEE](assets/card_coffee.jpg) | ![FINALLY](assets/card_finally.jpg) |
-| 小字用英文斜体，大标题用粗黑体 | 收尾镜头，之后接手写体片尾 |
+| 小字用英文斜体，大标题用粗黑体 | 收尾镜头，之后画面淡成白纸、浮出宋体片尾 |
 
 剪片之前，它先把所有素材整理成一张表。左边是画面，右边是它在表里的样子：
 
@@ -46,7 +46,7 @@ git clone https://github.com/quangtoanhoang767-ux/vlog-director ~/.claude/skills
 ## 它能做什么
 
 - **长片**：几分钟到十几分钟，有故事、有对白字幕。配乐只有两档固定音量：有人说话时低，没人说话才升高，不会忽大忽小。
-- **混剪**：1 到 2 分钟的杂志卡片风快剪。切点全部卡在音乐小节上，片头可以是路线逐个蹦出（「上海 → 河内 → 芽庄」），片尾是手写体。
+- **混剪**：1 到 2 分钟的杂志卡片风快剪。切点全部卡在音乐小节上，片头是白纸上显影的宋体片名，可以加一条航线、每两拍点亮一站；片尾接着最后一个镜头淡成白纸。
 - **素材表**：每段视频一行，时间、地点、人物、原话、好不好笑、能不能当开头，打 S/A/B/C 分，导出成 Excel 能打开的表。以后想找「那个镜头」，查表就行。
 - **顺手的**：朋友圈截图、封面、每个人一支个人小片。
 
@@ -133,7 +133,7 @@ AI 没法把 13 小时视频从头看到尾，所以它把「看」拆成两件�
 
 ## 字体
 
-优先用系统字体；没有的会自动下载 Google Fonts 上的开源字体（思源黑体、Archivo Black、Libre Baskerville、龙藏体手写、Noto Symbols 2），都是 SIL Open Font License，可免费商用。想换成自己的字体，在 `project.json` 的 `fonts` 里指定路径。
+优先用系统字体；没有的会自动下载 Google Fonts 上的开源字体（思源黑体、思源宋体、Archivo Black、Libre Baskerville、龙藏体手写、Noto Symbols 2），都是 SIL Open Font License，可免费商用。想换成自己的字体，在 `project.json` 的 `fonts` 里指定路径。
 
 ## 参与
 
