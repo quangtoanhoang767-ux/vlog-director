@@ -1,0 +1,7 @@
+numpy
+pillow
+imageio-ffmpeg
+faster-whisper
+# 只有 Windows + N 卡需要下面两个（让语音转写用上显卡）：
+# nvidia-cublas-cu12
+# nvidia-cudnn-cu12
